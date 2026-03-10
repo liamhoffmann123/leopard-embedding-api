@@ -6,13 +6,16 @@ from PIL import Image
 from io import BytesIO
 import torchvision.transforms as transforms
 from transformers import AutoModel
+import os
 
 MODEL_TAG = "conservationxlabs/miewid-msv2"
 
+os.environ["HF_HOME"] = "/home/site/huggingface"
+os.environ["TRANSFORMERS_CACHE"] = "/home/site/huggingface"
+
 app = FastAPI(title="Leopard Embedding API")
 
-model = AutoModel.from_pretrained(MODEL_TAG, trust_remote_code=True)
-model.eval()
+model = None
 
 transform = transforms.Compose([
     transforms.Resize((440, 440)),
@@ -31,6 +34,13 @@ class EmbedResponse(BaseModel):
     modelVersion: str
     embeddingDimension: int
     embedding: list[float]
+
+def get_model():
+    global model
+    if model is None:
+        model = AutoModel.from_pretrained(MODEL_TAG, trust_remote_code=True)
+        model.eval()
+    return model
 
 @app.get("/health")
 def health():
@@ -51,8 +61,10 @@ def embed(req: EmbedRequest):
         image = Image.open(BytesIO(response.content)).convert("RGB")
         tensor = transform(image).unsqueeze(0)
 
+        loaded_model = get_model()
+
         with torch.no_grad():
-            output = model(tensor)
+            output = loaded_model(tensor)
 
         if not isinstance(output, torch.Tensor):
             raise HTTPException(status_code=500, detail="Model output was not a tensor")
