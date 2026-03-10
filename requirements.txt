@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+gunicorn
+torch
+torchvision
+transformers
+pillow
+numpy
+requests
